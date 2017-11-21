@@ -6,6 +6,7 @@ import com.example.shirodemo.utils.Result;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.UsernamePasswordToken;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.apache.shiro.config.IniSecurityManagerFactory;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.mgt.SecurityManager;
@@ -22,6 +23,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private SecurityManager securityManager;
 
     @RequestMapping(value = "/init")
     public String initData() {
@@ -40,26 +44,40 @@ public class UserController {
     }
 
     @RequestMapping("/login")
-    public Result login(@RequestParam String user, @RequestParam String password) {
-        login("classpath:shiro.ini", user, password);
+    public Result testLogin(@RequestParam String user, @RequestParam String password) {
+        login(user, password);
         return Result.success(SecurityUtils.getSubject().getPrincipal());
     }
 
-    protected void login(String configFile, String username, String password) {
+    protected void login(String username, String password) {
 
-        //1、获取SecurityManager工厂，此处使用Ini配置文件初始化SecurityManager
-        Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory(configFile);
-
-        //2、得到SecurityManager实例 并绑定给SecurityUtils
-        org.apache.shiro.mgt.SecurityManager securityManager = factory.getInstance();
         SecurityUtils.setSecurityManager(securityManager);
 
-        //3、得到Subject及创建用户名/密码身份验证Token（即用户身份/凭证）
         Subject subject = SecurityUtils.getSubject();
         UsernamePasswordToken token = new UsernamePasswordToken(username, password);
 
         subject.login(token);
     }
 
+    @RequestMapping("/logout")
+    public void logout() {
+        Subject subject = SecurityUtils.getSubject();
+        if (subject.isAuthenticated()) {
+            System.out.println(subject.getPrincipal() + " logout");
+            subject.logout(); // session 会销毁，在SessionListener监听session销毁，清理权限缓存
+            System.out.println(subject.getPrincipal() + " logout");
+        }
+    }
+
+
+    @RequestMapping(value = "/role")
+    @RequiresRoles("admin")
+    public Result testRole() {
+        System.out.println(SecurityUtils.getSubject().getPrincipal());
+        return Result.success(SecurityUtils.getSubject().getPrincipal());
+    }
+
+    private Result isAdmin() {
+        return Result.success();
+    }
 }
